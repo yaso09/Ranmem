@@ -12,6 +12,7 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;justify-conten
 video,img{max-width:95%;max-height:75vh;background:black;cursor:pointer;display:none;}
 #title{margin-top:8px;opacity:.85;text-align:center;}
 #error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
+#redditLink{margin-top:4px;}
 #settings{display:none;background:#111;padding:12px;}
 .sub{border:1px solid #222;padding:8px;margin-bottom:8px;}
 .sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;}
@@ -40,9 +41,10 @@ video,img{max-width:95%;max-height:75vh;background:black;cursor:pointer;display:
 
 <main ondblclick="loadMeme()">
   <video id="video" autoplay></video>
-  <img id="image">
+  <img id="image" />
   <div id="title"></div>
   <div id="error"></div>
+  <div id="redditLink"></div>
 </main>
 
 <!-- DASH.JS CDN -->
@@ -53,6 +55,7 @@ const video = document.getElementById("video");
 const image = document.getElementById("image");
 const titleEl = document.getElementById("title");
 const errorEl = document.getElementById("error");
+const redditLinkEl = document.getElementById("redditLink");
 const subsBox = document.getElementById("subs");
 const onlyVideoEl = document.getElementById("onlyVideo");
 const nsfwEl = document.getElementById("nsfw");
@@ -117,6 +120,10 @@ async function loadMeme(){
   if(!settings.subs.length) return;
   titleEl.textContent="Yükleniyor…";
   errorEl.textContent="";
+  redditLinkEl.innerHTML="";
+  image.style.display="none";
+  video.style.display="none";
+
   const sub=settings.subs[Math.floor(Math.random()*settings.subs.length)];
 
   let json;
@@ -133,10 +140,11 @@ async function loadMeme(){
   const posts=json.data.children.map(c=>c.data)
     .filter(p=>{
       if(seen.has(p.id)) return false;
+      if(!p.is_video && !p.url) return false; // medya yoksa atla
       if(settings.onlyVideo && !p.is_video) return false;
       if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url && p.post_hint==="hosted:video") return false;
+      if(p.is_video && !p.media?.reddit_video?.dash_url) return false; // video ama dash_url yoksa atla
       return true;
     });
 
@@ -151,17 +159,32 @@ async function loadMeme(){
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  // Video veya resim ayrımı
+  // Önceki videoyu durdur
+  if(window.dashPlayer){ dashPlayer.reset(); }
+  video.pause();
+  video.src = "";
+
+  // Video veya resim
   if(post.is_video && post.media?.reddit_video?.dash_url){
-    image.style.display="none";
     video.style.display="block";
-    if(window.dashPlayer) dashPlayer.reset();
     window.dashPlayer=dashjs.MediaPlayer().create();
     dashPlayer.initialize(video, post.media.reddit_video.dash_url, true);
-  } else if(post.url){ // resim veya GIF
-    video.style.display="none";
-    image.style.display="block";
-    image.src = post.url;
+  } else {
+    let imgUrl = post.url;
+    if(!imgUrl.match(/\.(jpg|jpeg|png|gif)$/i)){
+      imgUrl = post.preview?.images?.[0]?.source?.url.replace(/&amp;/g,"&");
+    }
+    if(imgUrl){
+      image.style.display="block";
+      image.src=imgUrl;
+      image.onload = ()=>{ errorEl.textContent=""; };
+      image.onerror = ()=>{ errorEl.textContent="Resim yüklenemedi, tekrar deneniyor..."; setTimeout(loadMeme,800); };
+    }
+  }
+
+  // Reddit linki
+  if(post.permalink){
+    redditLinkEl.innerHTML = `<a href="https://reddit.com${post.permalink}" target="_blank">Reddit'te Aç</a>`;
   }
 }
 
