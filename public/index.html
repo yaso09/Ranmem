@@ -9,7 +9,7 @@ body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direc
 header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
 button{background:#222;color:#fff;border:0;padding:6px 10px;cursor:pointer;}
 main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
+video,img{max-width:95%;max-height:75vh;background:black;cursor:pointer;display:none;}
 #title{margin-top:8px;opacity:.85;text-align:center;}
 #error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
 #settings{display:none;background:#111;padding:12px;}
@@ -39,7 +39,8 @@ video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
 </div>
 
 <main ondblclick="loadMeme()">
-  <video id="video" autoplay muted></video>
+  <video id="video" autoplay></video>
+  <img id="image">
   <div id="title"></div>
   <div id="error"></div>
 </main>
@@ -49,6 +50,7 @@ video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
 
 <script>
 const video = document.getElementById("video");
+const image = document.getElementById("image");
 const titleEl = document.getElementById("title");
 const errorEl = document.getElementById("error");
 const subsBox = document.getElementById("subs");
@@ -134,7 +136,7 @@ async function loadMeme(){
       if(settings.onlyVideo && !p.is_video) return false;
       if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url) return false;
+      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url && p.post_hint==="hosted:video") return false;
       return true;
     });
 
@@ -149,15 +151,17 @@ async function loadMeme(){
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  // DASH.JS ile oynat
-  try{
-    const dashUrl = post.media.reddit_video.dash_url;
+  // Video veya resim ayrımı
+  if(post.is_video && post.media?.reddit_video?.dash_url){
+    image.style.display="none";
+    video.style.display="block";
     if(window.dashPlayer) dashPlayer.reset();
     window.dashPlayer=dashjs.MediaPlayer().create();
-    dashPlayer.initialize(video,dashUrl,true);
-  }catch(e){
-    console.error("DASH player error:", e);
-    errorEl.textContent="Video yüklenemedi.";
+    dashPlayer.initialize(video, post.media.reddit_video.dash_url, true);
+  } else if(post.url){ // resim veya GIF
+    video.style.display="none";
+    image.style.display="block";
+    image.src = post.url;
   }
 }
 
