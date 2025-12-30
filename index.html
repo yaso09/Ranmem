@@ -2,201 +2,262 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<title>Ranmem</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meme Viewer</title>
 
 <style>
-body {
+:root {
+    --bg: #0b0b0b;
+    --panel: #111;
+    --text: #f2f2f2;
+    --muted: #9a9a9a;
+    --accent: #ffffff;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
     margin: 0;
-    background: #0f0f0f;
-    color: #fff;
-    font-family: Arial, sans-serif;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
     overflow: hidden;
 }
 
-/* ÜST BAR */
-#topBar {
+#topbar {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    background: #1e1e1e;
-    padding: 10px;
-    display: none;
-    gap: 10px;
-    flex-wrap: wrap;
+    right: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.6), rgba(0,0,0,0));
     z-index: 10;
 }
 
-#topBar input,
-#topBar button,
-#topBar label {
+#brand {
+    font-weight: 600;
+    letter-spacing: .4px;
+    font-size: 15px;
+    opacity: .9;
+}
+
+#settingsBtn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 20px;
+    opacity: .8;
+}
+
+#settings {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--panel);
+    padding: 20px 16px 24px;
+    transform: translateY(-100%);
+    transition: transform .3s ease;
+    z-index: 20;
+}
+
+#settings.open {
+    transform: translateY(0);
+}
+
+.setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,.05);
     font-size: 14px;
 }
 
-#toggleSettings {
-    position: fixed;
-    top: 10px;
-    right: 12px;
-    font-size: 22px;
-    cursor: pointer;
-    z-index: 11;
+.setting:last-child {
+    border-bottom: none;
 }
 
-/* MEME */
+.setting label {
+    color: var(--muted);
+}
+
+.setting input {
+    transform: scale(1.2);
+}
+
 #viewer {
-    height: 100vh;
+    height: 100%;
+    padding-top: 56px;
+    padding-bottom: 48px;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
     align-items: center;
-    text-align: center;
+    justify-content: center;
 }
 
-video, img {
+img, video {
     max-width: 100%;
-    max-height: 75vh;
-    border-radius: 10px;
-    cursor: pointer;
+    max-height: 100%;
+    border-radius: 8px;
+}
+
+video {
+    background: #000;
 }
 
 #title {
-    margin-top: 12px;
-    padding: 0 15px;
-    font-size: 15px;
-    opacity: 0.85;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 14px 14px;
+    font-size: 13px;
+    text-align: center;
+    color: var(--muted);
+    background: linear-gradient(to top, rgba(0,0,0,.7), rgba(0,0,0,0));
 }
 </style>
 </head>
 <body>
 
-<!-- AYAR AÇ -->
-<div id="toggleSettings">⚙️</div>
+<div id="topbar">
+    <div id="brand">Ranmem</div>
+    <button id="settingsBtn">⚙︎</button>
+</div>
 
-<!-- ÜST AYAR BAR -->
-<div id="topBar">
-    <input id="subs" value="KGBTR,vlandiya,indirilenler" placeholder="Subredditler">
-    <input id="flairs" value="shitpost,Meme/Mizah,anlık,amk böyle işin" placeholder="Flairler">
-
-    <label>
+<div id="settings">
+    <div class="setting">
+        <label>Sadece video</label>
         <input type="checkbox" id="onlyVideo">
-        Sadece video
-    </label>
-
-    <button onclick="loadMemes()">Yükle</button>
+    </div>
+    <div class="setting">
+        <label>NSFW</label>
+        <input type="checkbox" id="nsfw">
+    </div>
 </div>
 
-<!-- MEME -->
-<div id="viewer">
-    <div id="media"></div>
-    <div id="title"></div>
-</div>
+<div id="viewer"></div>
+<div id="title"></div>
 
 <script>
-let memes = [];
-let index = 0;
-let clickTimer = null;
-
-/* AYAR BAR TOGGLE */
-document.getElementById("toggleSettings").onclick = () => {
-    const bar = document.getElementById("topBar");
-    bar.style.display = bar.style.display === "flex" ? "none" : "flex";
+const SUBS = {
+    "KGBTR": ["anlık", "amk böyle işin", "Galerimden Fotoğraflar/Videolar"],
+    "indirilenler": [],
+    "vlandiya": ["shitpost", "Meme/Mizah"]
 };
 
-/* MEME YÜKLE */
-async function loadMemes() {
-    memes = [];
-    index = 0;
+const viewer = document.getElementById("viewer");
+const titleEl = document.getElementById("title");
+const settings = document.getElementById("settings");
 
-    const subs = document.getElementById("subs").value
-        .split(",")
-        .map(s => s.trim());
+const onlyVideoEl = document.getElementById("onlyVideo");
+const nsfwEl = document.getElementById("nsfw");
 
-    const flairs = document.getElementById("flairs").value
-        .split(",")
-        .map(f => f.trim().toLowerCase());
+onlyVideoEl.checked = localStorage.getItem("onlyVideo") === "1";
+nsfwEl.checked = localStorage.getItem("nsfw") === "1";
 
-    const onlyVideo = document.getElementById("onlyVideo").checked;
+onlyVideoEl.onchange = () =>
+    localStorage.setItem("onlyVideo", onlyVideoEl.checked ? "1" : "0");
 
-    for (const sub of subs) {
-        try {
-            const res = await fetch(`https://www.reddit.com/r/${sub}/hot.json?limit=50`);
-            const json = await res.json();
+nsfwEl.onchange = () =>
+    localStorage.setItem("nsfw", nsfwEl.checked ? "1" : "0");
 
-            json.data.children.forEach(p => {
-                const d = p.data;
+document.getElementById("settingsBtn").onclick = () =>
+    settings.classList.toggle("open");
 
-                if (flairs.length &&
-                    (!d.link_flair_text ||
-                     !flairs.includes(d.link_flair_text.toLowerCase()))) return;
+const seen = new Set(JSON.parse(localStorage.getItem("seenPosts") || "[]"));
 
-                if (onlyVideo && !d.is_video) return;
+let lastTap = 0;
+document.body.addEventListener("touchend", tapHandler);
+document.body.addEventListener("dblclick", loadMeme);
 
-                if (d.is_video || d.post_hint === "image") {
-                    memes.push(d);
-                }
-            });
-        } catch {}
-    }
-
-    if (!memes.length) {
-        document.getElementById("media").innerHTML = "İçerik bulunamadı";
-        document.getElementById("title").textContent = "";
-        return;
-    }
-
-    showMeme();
+function tapHandler() {
+    const now = Date.now();
+    if (now - lastTap < 300) loadMeme();
+    lastTap = now;
 }
 
-/* MEME GÖSTER */
-function showMeme() {
-    const mediaBox = document.getElementById("media");
-    mediaBox.innerHTML = "";
+async function loadMeme() {
+    viewer.innerHTML = "";
+    titleEl.textContent = "Yükleniyor…";
 
-    const m = memes[index];
-    let el;
+    while (true) {
+        const subs = Object.keys(SUBS);
+        const sub = subs[Math.floor(Math.random() * subs.length)];
+        const flairs = SUBS[sub];
+        const flair = flairs.length
+            ? flairs[Math.floor(Math.random() * flairs.length)]
+            : null;
 
-    if (m.is_video) {
-        el = document.createElement("video");
-        el.src = m.media.reddit_video.fallback_url;
-        el.autoplay = true;
-        el.loop = true;
-        el.muted = true;
-        el.playsInline = true;
-        el.controls = false;
+        let url = `https://www.reddit.com/r/${sub}/hot.json?limit=50`;
+        if (flair)
+            url += `&q=flair:"${encodeURIComponent(flair)}"&restrict_sr=1`;
 
-        el.onclick = () => handleClick(el);
+        const res = await fetch(url);
+        const json = await res.json();
+        const posts = json.data.children.map(c => c.data).sort(() => Math.random() - .5);
+
+        for (const post of posts) {
+            if (seen.has(post.id)) continue;
+            if (!nsfwEl.checked && post.over_18) continue;
+
+            const isVideo = post.is_video;
+            const isImage = post.post_hint === "image";
+
+            if (onlyVideoEl.checked && !isVideo) continue;
+            if (!isVideo && !isImage) continue;
+
+            seen.add(post.id);
+            localStorage.setItem("seenPosts", JSON.stringify([...seen]));
+
+            render(post);
+            return;
+        }
+    }
+}
+
+function render(post) {
+    viewer.innerHTML = "";
+    titleEl.textContent = post.title;
+
+    if (post.is_video) {
+        const v = document.createElement("video");
+        v.src = post.media.reddit_video.fallback_url;
+        v.autoplay = true;
+        v.muted = true;
+        v.playsInline = true;
+
+        let unlocked = false;
+        v.onclick = e => {
+            e.stopPropagation();
+            if (!unlocked) {
+                v.muted = false;
+                unlocked = true;
+            }
+            v.paused ? v.play() : v.pause();
+        };
+
+        viewer.appendChild(v);
     } else {
-        el = document.createElement("img");
-        el.src = m.url;
-        el.onclick = nextMeme;
-    }
-
-    mediaBox.appendChild(el);
-    document.getElementById("title").textContent = m.title;
-}
-
-/* TIK KONTROL */
-function handleClick(video) {
-    if (clickTimer) {
-        clearTimeout(clickTimer);
-        clickTimer = null;
-        nextMeme();
-    } else {
-        clickTimer = setTimeout(() => {
-            video.paused ? video.play() : video.pause();
-            clickTimer = null;
-        }, 250);
+        const img = document.createElement("img");
+        img.src = post.url;
+        viewer.appendChild(img);
     }
 }
 
-/* SONRAKİ */
-function nextMeme() {
-    index = (index + 1) % memes.length;
-    showMeme();
-}
-
-loadMemes();
+loadMeme();
 </script>
 
 </body>
