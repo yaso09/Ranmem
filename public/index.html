@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Ranmem</title>
+
+<style>
+*{box-sizing:border-box;font-family:system-ui}
+body{
+  margin:0;
+  background:#0f0f0f;
+  color:#fff;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+header{
+  background:#151515;
+  padding:10px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+button{
+  background:#222;
+  color:#fff;
+  border:0;
+  padding:6px 10px;
+  cursor:pointer;
+}
+main{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+}
+video{
+  max-width:95%;
+  max-height:80vh;
+  background:black;
+}
+#title{
+  opacity:.85;
+  margin-top:8px;
+}
+
+/* SETTINGS */
+#settings{
+  display:none;
+  background:#111;
+  padding:12px;
+}
+.sub{
+  border:1px solid #222;
+  padding:8px;
+  margin-bottom:8px;
+}
+.sub input,
+.sub textarea{
+  width:100%;
+  background:#222;
+  color:#fff;
+  border:0;
+  padding:6px;
+  margin-top:4px;
+}
+.sub button{
+  background:#400;
+  margin-top:6px;
+}
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <b>Ranmem</b>
+  <button onclick="toggleSettings()">⚙</button>
+</header>
+
+<div id="settings">
+  <div id="subs"></div>
+
+  <button onclick="addSub()">＋ Sub ekle</button>
+
+  <div class="actions">
+    <label><input type="checkbox" id="onlyVideo"> Sadece video</label>
+    <label><input type="checkbox" id="nsfw"> NSFW</label>
+  </div>
+
+  <div class="actions">
+    <button onclick="saveSettings()">Yenile / Uygula</button>
+  </div>
+</div>
+
+<main ondblclick="loadMeme()">
+  <video id="video" controls autoplay></video>
+  <div id="title"></div>
+</main>
+
+<script>
+const videoEl = document.getElementById("video");
+const titleEl = document.getElementById("title");
+const subsBox = document.getElementById("subs");
+const onlyVideoEl = document.getElementById("onlyVideo");
+const nsfwEl = document.getElementById("nsfw");
+
+let settings = {
+  subs: [
+    { name: "vlandiya", flairs: ["shitpost","Meme/Mizah"] },
+    { name: "indirilenler", flairs: [] }
+  ],
+  onlyVideo: true,
+  nsfw: false
+};
+
+const seen = new Set();
+
+/* ================= SETTINGS ================= */
+
+function toggleSettings(){
+  const s = document.getElementById("settings");
+  s.style.display = s.style.display === "none" ? "block" : "none";
+}
+
+function renderSettings(){
+  subsBox.innerHTML = "";
+  settings.subs.forEach((s, i) => {
+    const div = document.createElement("div");
+    div.className = "sub";
+    div.innerHTML = `
+      <input placeholder="subreddit" value="${s.name}">
+      <textarea rows="2" placeholder="flair1, flair2">${s.flairs.join(", ")}</textarea>
+      <button onclick="removeSub(${i})">Sil</button>
+    `;
+    subsBox.appendChild(div);
+  });
+  onlyVideoEl.checked = settings.onlyVideo;
+  nsfwEl.checked = settings.nsfw;
+}
+
+function addSub(){
+  settings.subs.push({ name:"", flairs:[] });
+  renderSettings();
+}
+
+function removeSub(i){
+  settings.subs.splice(i,1);
+  renderSettings();
+}
+
+function saveSettings(){
+  const subs = [];
+  document.querySelectorAll(".sub").forEach(div=>{
+    const name = div.querySelector("input").value.trim();
+    const flairs = div.querySelector("textarea").value
+      .split(",")
+      .map(f=>f.trim())
+      .filter(Boolean);
+    if(name) subs.push({ name, flairs });
+  });
+
+  settings = {
+    subs,
+    onlyVideo: onlyVideoEl.checked,
+    nsfw: nsfwEl.checked
+  };
+
+  localStorage.setItem("ranmem_settings", JSON.stringify(settings));
+  toggleSettings();
+  seen.clear();
+  loadMeme();
+}
+
+function loadFromStorage(){
+  const s = localStorage.getItem("ranmem_settings");
+  if(s) settings = JSON.parse(s);
+  renderSettings();
+}
+
+/* ================= MEDIA SOURCE ================= */
+
+async function playWithSound(videoURL, audioURL){
+  videoEl.pause();
+  videoEl.removeAttribute("src");
+  videoEl.load();
+
+  const ms = new MediaSource();
+  videoEl.src = URL.createObjectURL(ms);
+
+  ms.addEventListener("sourceopen", async () => {
+    const vBuf = ms.addSourceBuffer('video/mp4; codecs="avc1.64001f"');
+    const aBuf = ms.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
+
+    const [vData, aData] = await Promise.all([
+      fetch("/proxy?url=" + encodeURIComponent(videoURL)).then(r=>r.arrayBuffer()),
+      fetch("/proxy?url=" + encodeURIComponent(audioURL)).then(r=>r.arrayBuffer())
+    ]);
+
+    vBuf.appendBuffer(vData);
+    aBuf.appendBuffer(aData);
+
+    vBuf.addEventListener("updateend", () => {
+      if (!aBuf.updating && ms.readyState === "open") {
+        ms.endOfStream();
+        videoEl.play().catch(()=>{});
+      }
+    });
+  });
+}
+
+/* ================= LOAD MEME ================= */
+
+async function loadMeme(){
+  if(!settings.subs.length) return;
+
+  titleEl.textContent = "Yükleniyor…";
+
+  const subObj = settings.subs[Math.floor(Math.random()*settings.subs.length)];
+
+  const r = await fetch("/api/meme",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      sub: subObj.name,
+      nsfw: settings.nsfw,
+      onlyVideo: settings.onlyVideo,
+      seen: Array.from(seen)
+    })
+  });
+
+  const j = await r.json();
+  if(!j.ok) return loadMeme();
+
+  seen.add(j.id);
+  titleEl.textContent = j.title;
+
+  playWithSound(j.video, j.audio);
+}
+
+loadFromStorage();
+loadMeme();
+</script>
+
+</body>
+</html>
