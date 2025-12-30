@@ -28,25 +28,6 @@ app.get("/api/reddit", async (req, res) => {
   }
 });
 
-/* ================= DASH / VIDEO + AUDIO PROXY ================= */
-app.get("/api/dash", async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.sendStatus(400);
-
-  try {
-    const headers = { "User-Agent": "Ranmem v0.1 by /u/yasirovic" };
-    if (req.headers.range) headers.Range = req.headers.range;
-
-    const r = await fetch(url, { headers });
-    res.status(r.status);
-    r.headers.forEach((v, k) => res.setHeader(k, v));
-    r.body.pipe(res);
-  } catch (e) {
-    console.error("DASH proxy error:", e);
-    res.sendStatus(500);
-  }
-});
-
 /* ================= START ================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Ranmem running on", PORT));
