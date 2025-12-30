@@ -3,83 +3,24 @@
 <head>
 <meta charset="utf-8">
 <title>Ranmem</title>
-
-<script src="https://cdn.jsdelivr.net/npm/shaka-player/dist/shaka-player.compiled.js"></script>
-
 <style>
 *{box-sizing:border-box;font-family:system-ui}
-body{
-  margin:0;
-  background:#0f0f0f;
-  color:#fff;
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-}
-header{
-  background:#151515;
-  padding:10px 16px;
-  display:flex;
-  justify-content:space-between;
-}
-button{
-  background:#222;
-  color:#fff;
-  border:0;
-  padding:6px 10px;
-  cursor:pointer;
-}
-main{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-}
-video{
-  max-width:95%;
-  max-height:80vh;
-  background:black;
-}
-#title{
-  margin-top:8px;
-  opacity:.85;
-}
-
-/* SETTINGS */
-#settings{
-  display:none;
-  background:#111;
-  padding:12px;
-}
-.sub{
-  border:1px solid #222;
-  padding:8px;
-  margin-bottom:8px;
-}
-.sub input,
-.sub textarea{
-  width:100%;
-  background:#222;
-  color:#fff;
-  border:0;
-  padding:6px;
-  margin-top:4px;
-}
-.sub button{
-  background:#400;
-  margin-top:6px;
-}
-.actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
+body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
+header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
+button{background:#222;color:#fff;border:0;padding:6px 10px;cursor:pointer;}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
+#title{margin-top:8px;opacity:.85;text-align:center;}
+#error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
+#settings{display:none;background:#111;padding:12px;}
+.sub{border:1px solid #222;padding:8px;margin-bottom:8px;}
+.sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;}
+.sub button{background:#400;margin-top:6px;}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
 </style>
 </head>
 
 <body>
-
 <header>
   <b>Ranmem</b>
   <button onclick="toggleSettings()">⚙</button>
@@ -88,12 +29,10 @@ video{
 <div id="settings">
   <div id="subs"></div>
   <button onclick="addSub()">＋ Sub ekle</button>
-
   <div class="actions">
     <label><input type="checkbox" id="onlyVideo"> Sadece video</label>
     <label><input type="checkbox" id="nsfw"> NSFW</label>
   </div>
-
   <div class="actions">
     <button onclick="saveSettings()">Yenile / Uygula</button>
   </div>
@@ -102,121 +41,127 @@ video{
 <main ondblclick="loadMeme()">
   <video id="video" autoplay muted></video>
   <div id="title"></div>
+  <div id="error"></div>
 </main>
+
+<!-- DASH.JS CDN -->
+<script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
 
 <script>
 const video = document.getElementById("video");
 const titleEl = document.getElementById("title");
+const errorEl = document.getElementById("error");
 const subsBox = document.getElementById("subs");
 const onlyVideoEl = document.getElementById("onlyVideo");
 const nsfwEl = document.getElementById("nsfw");
 
-const player = new shaka.Player(video);
-
 let settings = {
   subs:[
-    { name:"vlandiya", flairs:["shitpost","Meme/Mizah"] },
-    { name:"indirilenler", flairs:[] }
+    {name:"KGBTR", flairs:["anlık","amk böyle işin","Galerimden Fotoğraflar/Videolar"]},
+    {name:"vlandiya", flairs:["shitpost","Meme/Mizah"]},
+    {name:"indirilenler", flairs:[]}
   ],
   onlyVideo:true,
   nsfw:false
 };
-
 const seen = new Set();
 
-/* SETTINGS */
-
+/* ================= SETTINGS ================= */
 function toggleSettings(){
-  const s = document.getElementById("settings");
-  s.style.display = s.style.display === "none" ? "block" : "none";
+  document.getElementById("settings").style.display =
+    document.getElementById("settings").style.display==="none"?"block":"none";
 }
-
 function renderSettings(){
   subsBox.innerHTML="";
   settings.subs.forEach((s,i)=>{
     const d=document.createElement("div");
     d.className="sub";
-    d.innerHTML=`
-      <input value="${s.name}">
-      <textarea>${s.flairs.join(", ")}</textarea>
-      <button onclick="removeSub(${i})">Sil</button>
-    `;
+    d.innerHTML=`<input placeholder="subreddit" value="${s.name}">
+      <textarea rows="2" placeholder="flair1, flair2">${s.flairs.join(",")}</textarea>
+      <button onclick="removeSub(${i})">Sil</button>`;
     subsBox.appendChild(d);
   });
   onlyVideoEl.checked=settings.onlyVideo;
   nsfwEl.checked=settings.nsfw;
 }
-
-function addSub(){
-  settings.subs.push({name:"",flairs:[]});
-  renderSettings();
-}
-
-function removeSub(i){
-  settings.subs.splice(i,1);
-  renderSettings();
-}
-
+function addSub(){settings.subs.push({name:"",flairs:[]});renderSettings();}
+function removeSub(i){settings.subs.splice(i,1);renderSettings();}
 function saveSettings(){
   const subs=[];
-  document.querySelectorAll(".sub").forEach(d=>{
-    const name=d.querySelector("input").value.trim();
-    const flairs=d.querySelector("textarea").value
-      .split(",").map(f=>f.trim()).filter(Boolean);
+  document.querySelectorAll(".sub").forEach(div=>{
+    const name=div.querySelector("input").value.trim();
+    const flairs=div.querySelector("textarea").value.split(",").map(f=>f.trim()).filter(Boolean);
     if(name) subs.push({name,flairs});
   });
-
-  settings={
-    subs,
-    onlyVideo:onlyVideoEl.checked,
-    nsfw:nsfwEl.checked
-  };
-
+  settings={subs,onlyVideo:onlyVideoEl.checked,nsfw:nsfwEl.checked};
   localStorage.setItem("ranmem_settings",JSON.stringify(settings));
   toggleSettings();
   seen.clear();
   loadMeme();
 }
-
 function loadFromStorage(){
   const s=localStorage.getItem("ranmem_settings");
   if(s) settings=JSON.parse(s);
   renderSettings();
 }
 
-/* LOAD MEME */
+/* ================= VIDEO CLICK (PAUSE/PLAY) ================= */
+video.addEventListener("click",()=>{video.paused?video.play():video.pause();});
+video.addEventListener("ended",()=>{video.currentTime=0;video.play();});
 
+/* ================= LOAD MEME ================= */
+let retryCount=0;
 async function loadMeme(){
   if(!settings.subs.length) return;
   titleEl.textContent="Yükleniyor…";
-
+  errorEl.textContent="";
   const sub=settings.subs[Math.floor(Math.random()*settings.subs.length)];
 
-  const r=await fetch(`/api/reddit?sub=${sub.name}&limit=50`);
-  const j=await r.json();
+  let json;
+  try{
+    const r=await fetch(`/api/reddit?sub=${encodeURIComponent(sub.name)}&limit=50`);
+    if(!r.ok) throw new Error("reddit api error");
+    json=await r.json();
+  }catch(e){
+    errorEl.textContent="Reddit’e ulaşılamadı. Tekrar deneniyor…";
+    console.error(e);
+    return setTimeout(loadMeme,1200);
+  }
 
-  const posts=j.data.children
-    .map(c=>c.data)
+  const posts=json.data.children.map(c=>c.data)
     .filter(p=>{
       if(seen.has(p.id)) return false;
-      if(!settings.nsfw && p.over_18) return false;
       if(settings.onlyVideo && !p.is_video) return false;
+      if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      return p.is_video && p.media?.reddit_video?.dash_url;
+      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url) return false;
+      return true;
     });
 
-  if(!posts.length) return loadMeme();
+  if(!posts.length){
+    retryCount++;
+    if(retryCount>5){errorEl.textContent="Uygun içerik bulunamadı.";return;}
+    return setTimeout(loadMeme,800);
+  }
 
+  retryCount=0;
   const post=posts[Math.floor(Math.random()*posts.length)];
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  const dash = "/api/dash?url=" + encodeURIComponent(post.media.reddit_video.dash_url);
-  await player.load(dash);
-  video.muted=false;
-  video.play().catch(()=>{});
+  // DASH.JS ile oynat
+  try{
+    const dashUrl = post.media.reddit_video.dash_url;
+    if(window.dashPlayer) dashPlayer.reset();
+    window.dashPlayer=dashjs.MediaPlayer().create();
+    dashPlayer.initialize(video,dashUrl,true);
+  }catch(e){
+    console.error("DASH player error:", e);
+    errorEl.textContent="Video yüklenemedi.";
+  }
 }
 
+/* ================= INIT ================= */
 loadFromStorage();
 loadMeme();
 </script>
