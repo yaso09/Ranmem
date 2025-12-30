@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 
 const app = express();
 app.use(express.static("public"));
@@ -26,6 +27,10 @@ app.get("/api/reddit", async (req, res) => {
     res.status(500).json({ error: "reddit_fetch_exception" });
   }
 });
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+})
 
 /* ================= START ================= */
 const PORT = process.env.PORT || 3000;
