@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>Ranmem</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box;font-family:system-ui}
 body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
@@ -39,8 +38,8 @@ video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
   </div>
 </div>
 
-<main>
-  <video id="video" autoplay></video>
+<main ondblclick="loadMeme()">
+  <video id="video" autoplay muted></video>
   <div id="title"></div>
   <div id="error"></div>
 </main>
@@ -67,7 +66,7 @@ let settings = {
 };
 const seen = new Set();
 
-/* ================= SETTINGS ================= */
+/* SETTINGS */
 function toggleSettings(){
   document.getElementById("settings").style.display =
     document.getElementById("settings").style.display==="none"?"block":"none";
@@ -106,11 +105,11 @@ function loadFromStorage(){
   renderSettings();
 }
 
-/* ================= VIDEO CLICK (PAUSE/PLAY) ================= */
+/* VIDEO CLICK */
 video.addEventListener("click",()=>{video.paused?video.play():video.pause();});
 video.addEventListener("ended",()=>{video.currentTime=0;video.play();});
 
-/* ================= LOAD MEME ================= */
+/* LOAD MEME */
 let retryCount=0;
 async function loadMeme(){
   if(!settings.subs.length) return;
@@ -120,19 +119,10 @@ async function loadMeme(){
 
   let json;
   try{
-    const url = `https://reddit.com/r/${sub.name}/hot/.json?limit=5`;
-    fetch(url)
-      .then(res => res.json())
-      .then(jsn => {
-        json = jsn;
-      })
-      .catch(err => {
-        throw new Error("reddit api error");
-      })
-    /*const r=await fetch(`https://reddit.com/r/${sub.name}/hot.json?limit=50`);
+    const r = await fetch(`/reddit.php?sub=${encodeURIComponent(sub.name)}&limit=50`);
     if(!r.ok) throw new Error("reddit api error");
-    json=await r.json();*/
-  }catch(e){
+    json = await r.json();
+  } catch(e){
     errorEl.textContent="Reddit’e ulaşılamadı. Tekrar deneniyor…";
     console.error(e);
     return setTimeout(loadMeme,1200);
@@ -144,8 +134,7 @@ async function loadMeme(){
       if(settings.onlyVideo && !p.is_video) return false;
       if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url) return false;
-      if(!p.url && !p.is_video) return false; // medya yoksa atla
+      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url && !p.url) return false;
       return true;
     });
 
@@ -160,54 +149,22 @@ async function loadMeme(){
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  // DASH.JS ile oynat
   if(post.is_video && post.media?.reddit_video?.dash_url){
-    try{
-      const dashUrl = post.media.reddit_video.dash_url;
-      if(window.dashPlayer) dashPlayer.reset();
-      window.dashPlayer=dashjs.MediaPlayer().create();
-      dashPlayer.initialize(video,dashUrl,true);
-    }catch(e){
-      console.error("DASH player error:", e);
-      errorEl.textContent="Video yüklenemedi.";
-    }
-  } else {
+    const dashUrl = post.media.reddit_video.dash_url;
+    if(window.dashPlayer) dashPlayer.reset();
+    window.dashPlayer=dashjs.MediaPlayer().create();
+    dashPlayer.initialize(video,dashUrl,true);
+  } else if(post.url){
+    video.pause();
     video.src = post.url;
     video.load();
     video.play();
   }
-
-  // Reddit link
-  const redditLinkEl = document.createElement("a");
-  redditLinkEl.href = `https://reddit.com${post.permalink}`;
-  redditLinkEl.textContent = "Reddit'te aç";
-  redditLinkEl.style.display="block";
-  redditLinkEl.style.marginTop="8px";
-  redditLinkEl.style.color="#0af";
-  redditLinkEl.target="_blank";
-  const existing = document.getElementById("redditLink");
-  if(existing) existing.replaceWith(redditLinkEl);
-  redditLinkEl.id="redditLink";
-  titleEl.after(redditLinkEl);
 }
 
-/* ================= INIT ================= */
+/* INIT */
 loadFromStorage();
 loadMeme();
-
-/* ================= DOUBLE TAP / DOUBLE CLICK ================= */
-let lastTap = 0;
-document.addEventListener("dblclick", loadMeme);
-document.addEventListener("touchend", e=>{
-  const currentTime = new Date().getTime();
-  const tapLength = currentTime - lastTap;
-  if(tapLength < 300 && tapLength > 0){
-    loadMeme();
-    e.preventDefault();
-  }
-  lastTap = currentTime;
-});
 </script>
-
 </body>
 </html>
