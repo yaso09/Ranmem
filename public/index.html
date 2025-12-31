@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Ranmem</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui}
+body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
+header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.card{background:#222;padding:16px;border-radius:8px;max-width:600px;margin:16px;display:flex;flex-direction:column;align-items:center;}
+img, video{max-width:100%;border-radius:8px;cursor:pointer;}
+#title{margin-top:8px;text-align:center;}
+#error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
+</style>
+</head>
+<body>
+<header><b>Ranmem</b></header>
+<main>
+  <div class="card">
+    <div id="media-container"></div>
+    <div id="title"></div>
+    <div id="error"></div>
+    <a id="reddit-link" href="#" target="_blank" style="color:#0af;margin-top:8px;">Reddit'te aç</a>
+  </div>
+</main>
+
+<script>
+const mediaContainer = document.getElementById("media-container");
+const titleEl = document.getElementById("title");
+const errorEl = document.getElementById("error");
+const redditLinkEl = document.getElementById("reddit-link");
+
+const subs = [
+  {name:"KGBTR", flairs:["anlık","amk böyle işin","Galerimden Fotoğraflar/Videolar"]},
+  {name:"vlandiya", flairs:["shitpost","Meme/Mizah"]},
+  {name:"indirilenler", flairs:[]}
+];
+
+const seen = new Set();
+let retryCount = 0;
+
+async function loadMeme(){
+  titleEl.textContent="Yükleniyor…";
+  errorEl.textContent="";
+  mediaContainer.innerHTML="";
+
+  const sub = subs[Math.floor(Math.random()*subs.length)];
+
+  let json;
+  try {
+    const r = await fetch(`/api/reddit?sub=${encodeURIComponent(sub.name)}&limit=50`);
+    if(!r.ok) throw new Error("reddit api error");
+    json = await r.json();
+  } catch(e) {
+    errorEl.textContent="Reddit’e ulaşılamadı. Tekrar deneniyor…";
+    console.error(e);
+    return setTimeout(loadMeme, 1200);
+  }
+
+  const posts = json.data.children.map(c=>c.data)
+    .filter(p => {
+      if(seen.has(p.id)) return false;
+      if(!p.media && !p.preview) return false; // medya yoksa atla
+      if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
+      return true;
+    });
+
+  if(!posts.length){
+    retryCount++;
+    if(retryCount>5){errorEl.textContent="Uygun içerik bulunamadı."; return;}
+    return setTimeout(loadMeme, 800);
+  }
+
+  retryCount=0;
+  const post = posts[Math.floor(Math.random()*posts.length)];
+  seen.add(post.id);
+
+  titleEl.textContent = post.title;
+  redditLinkEl.href = `https://reddit.com${post.permalink}`;
+
+  // Medya göster
+  if(post.is_video && post.media?.reddit_video?.fallback_url){
+    const v = document.createElement("video");
+    v.src = post.media.reddit_video.fallback_url;
+    v.autoplay = true;
+    v.loop = true;
+    v.controls = false;
+    v.muted = true;
+    v.addEventListener("click", ()=>v.paused?v.play():v.pause());
+    mediaContainer.appendChild(v);
+  } else if(post.preview?.images?.[0]?.source?.url){
+    const img = document.createElement("img");
+    img.src = post.preview.images[0].source.url.replaceAll("&amp;", "&");
+    mediaContainer.appendChild(img);
+  }
+}
+
+// Çift tıklama ile yeni içerik
+mediaContainer.addEventListener("dblclick", loadMeme);
+
+loadMeme();
+</script>
+</body>
+</html>
