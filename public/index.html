@@ -2,21 +2,24 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ranmem</title>
 <style>
 *{box-sizing:border-box;font-family:system-ui}
 body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
 header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
-button{background:#222;color:#fff;border:0;padding:6px 10px;cursor:pointer;}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-video,img{max-width:95%;max-height:75vh;background:black;cursor:pointer;display:none;}
-#title{margin-top:8px;opacity:.85;text-align:center;}
-#error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
-#redditLink{margin-top:4px;}
-#settings{display:none;background:#111;padding:12px;}
-.sub{border:1px solid #222;padding:8px;margin-bottom:8px;}
-.sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;}
-.sub button{background:#400;margin-top:6px;}
+button{background:#222;color:#fff;border:0;padding:8px 12px;font-size:16px;cursor:pointer;border-radius:4px;}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;}
+video,img{max-width:100%;max-height:80vh;background:black;cursor:pointer;display:none;border-radius:4px;}
+#title{margin-top:8px;opacity:.85;text-align:center;font-size:16px;}
+#error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;font-size:14px;}
+#redditLink{margin-top:6px;font-size:14px;}
+#redditLink a{color:#4fa; text-decoration: none;}
+#redditLink a:hover{text-decoration: underline;}
+#settings{display:none;background:#111;padding:12px;border-top:1px solid #222;}
+.sub{border:1px solid #222;padding:8px;margin-bottom:8px;border-radius:4px;}
+.sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;border-radius:4px;}
+.sub button{background:#400;margin-top:6px;padding:6px 10px;font-size:14px;}
 .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
 </style>
 </head>
@@ -40,16 +43,14 @@ video,img{max-width:95%;max-height:75vh;background:black;cursor:pointer;display:
 </div>
 
 <main ondblclick="loadMeme()">
-  <video id="video" autoplay></video>
+  <video id="video" autoplay playsinline></video>
   <img id="image" />
   <div id="title"></div>
   <div id="error"></div>
   <div id="redditLink"></div>
 </main>
 
-<!-- DASH.JS CDN -->
 <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
-
 <script>
 const video = document.getElementById("video");
 const image = document.getElementById("image");
@@ -71,7 +72,7 @@ let settings = {
 };
 const seen = new Set();
 
-/* ================= SETTINGS ================= */
+/* SETTINGS */
 function toggleSettings(){
   document.getElementById("settings").style.display =
     document.getElementById("settings").style.display==="none"?"block":"none";
@@ -110,11 +111,11 @@ function loadFromStorage(){
   renderSettings();
 }
 
-/* ================= VIDEO CLICK (PAUSE/PLAY) ================= */
+/* VIDEO CLICK (PAUSE/PLAY) */
 video.addEventListener("click",()=>{video.paused?video.play():video.pause();});
 video.addEventListener("ended",()=>{video.currentTime=0;video.play();});
 
-/* ================= LOAD MEME ================= */
+/* LOAD MEME */
 let retryCount=0;
 async function loadMeme(){
   if(!settings.subs.length) return;
@@ -140,11 +141,11 @@ async function loadMeme(){
   const posts=json.data.children.map(c=>c.data)
     .filter(p=>{
       if(seen.has(p.id)) return false;
-      if(!p.is_video && !p.url) return false; // medya yoksa atla
+      if(!p.is_video && !p.url) return false;
       if(settings.onlyVideo && !p.is_video) return false;
       if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      if(p.is_video && !p.media?.reddit_video?.dash_url) return false; // video ama dash_url yoksa atla
+      if(p.is_video && !p.media?.reddit_video?.dash_url) return false;
       return true;
     });
 
@@ -159,12 +160,10 @@ async function loadMeme(){
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  // Önceki videoyu durdur
   if(window.dashPlayer){ dashPlayer.reset(); }
   video.pause();
   video.src = "";
 
-  // Video veya resim
   if(post.is_video && post.media?.reddit_video?.dash_url){
     video.style.display="block";
     window.dashPlayer=dashjs.MediaPlayer().create();
@@ -182,16 +181,14 @@ async function loadMeme(){
     }
   }
 
-  // Reddit linki
   if(post.permalink){
     redditLinkEl.innerHTML = `<a href="https://reddit.com${post.permalink}" target="_blank">Reddit'te Aç</a>`;
   }
 }
 
-/* ================= INIT ================= */
+/* INIT */
 loadFromStorage();
 loadMeme();
 </script>
-
 </body>
 </html>
