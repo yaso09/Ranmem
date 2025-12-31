@@ -1,28 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <title>Ranmem</title>
 <style>
 *{box-sizing:border-box;font-family:system-ui}
 body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
 header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
+button{background:#222;color:#fff;border:0;padding:6px 10px;cursor:pointer;}
 main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.card{background:#222;padding:16px;border-radius:8px;max-width:600px;margin:16px;display:flex;flex-direction:column;align-items:center;}
-img, video{max-width:100%;border-radius:8px;cursor:pointer;}
-#title{margin-top:8px;text-align:center;}
+video,img{max-width:95%;max-height:75vh;background:black;border-radius:8px;cursor:pointer;}
+#title{margin-top:8px;opacity:.85;text-align:center;}
 #error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
+#settings{display:none;background:#111;padding:12px;}
+.sub{border:1px solid #222;padding:8px;margin-bottom:8px;}
+.sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;}
+.sub button{background:#400;margin-top:6px;}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
+#reddit-link{color:#0af;margin-top:8px;display:block;text-align:center;}
 </style>
 </head>
+
 <body>
-<header><b>Ranmem</b></header>
-<main>
-  <div class="card">
-    <div id="media-container"></div>
-    <div id="title"></div>
-    <div id="error"></div>
-    <a id="reddit-link" href="#" target="_blank" style="color:#0af;margin-top:8px;">Reddit'te aç</a>
+<header>
+  <b>Ranmem</b>
+  <button onclick="toggleSettings()">⚙</button>
+</header>
+
+<div id="settings">
+  <div id="subs"></div>
+  <button onclick="addSub()">＋ Sub ekle</button>
+  <div class="actions">
+    <label><input type="checkbox" id="onlyVideo"> Sadece video</label>
+    <label><input type="checkbox" id="nsfw"> NSFW</label>
   </div>
+  <div class="actions">
+    <button onclick="saveSettings()">Yenile / Uygula</button>
+  </div>
+</div>
+
+<main ondblclick="loadMeme()">
+  <div id="media-container"></div>
+  <div id="title"></div>
+  <div id="error"></div>
+  <a id="reddit-link" href="#" target="_blank">Reddit'te aç</a>
 </main>
 
 <script>
@@ -30,22 +51,69 @@ const mediaContainer = document.getElementById("media-container");
 const titleEl = document.getElementById("title");
 const errorEl = document.getElementById("error");
 const redditLinkEl = document.getElementById("reddit-link");
+const subsBox = document.getElementById("subs");
+const onlyVideoEl = document.getElementById("onlyVideo");
+const nsfwEl = document.getElementById("nsfw");
 
-const subs = [
-  {name:"KGBTR", flairs:["anlık","amk böyle işin","Galerimden Fotoğraflar/Videolar"]},
-  {name:"vlandiya", flairs:["shitpost","Meme/Mizah"]},
-  {name:"indirilenler", flairs:[]}
-];
-
+let settings = {
+  subs:[
+    {name:"KGBTR", flairs:["anlık","amk böyle işin","Galerimden Fotoğraflar/Videolar"]},
+    {name:"vlandiya", flairs:["shitpost","Meme/Mizah"]},
+    {name:"indirilenler", flairs:[]}
+  ],
+  onlyVideo:true,
+  nsfw:false
+};
 const seen = new Set();
-let retryCount = 0;
 
+/* ================= SETTINGS ================= */
+function toggleSettings(){
+  document.getElementById("settings").style.display =
+    document.getElementById("settings").style.display==="none"?"block":"none";
+}
+function renderSettings(){
+  subsBox.innerHTML="";
+  settings.subs.forEach((s,i)=>{
+    const d=document.createElement("div");
+    d.className="sub";
+    d.innerHTML=`<input placeholder="subreddit" value="${s.name}">
+      <textarea rows="2" placeholder="flair1, flair2">${s.flairs.join(",")}</textarea>
+      <button onclick="removeSub(${i})">Sil</button>`;
+    subsBox.appendChild(d);
+  });
+  onlyVideoEl.checked=settings.onlyVideo;
+  nsfwEl.checked=settings.nsfw;
+}
+function addSub(){settings.subs.push({name:"",flairs:[]});renderSettings();}
+function removeSub(i){settings.subs.splice(i,1);renderSettings();}
+function saveSettings(){
+  const subs=[];
+  document.querySelectorAll(".sub").forEach(div=>{
+    const name=div.querySelector("input").value.trim();
+    const flairs=div.querySelector("textarea").value.split(",").map(f=>f.trim()).filter(Boolean);
+    if(name) subs.push({name,flairs});
+  });
+  settings={subs,onlyVideo:onlyVideoEl.checked,nsfw:nsfwEl.checked};
+  localStorage.setItem("ranmem_settings",JSON.stringify(settings));
+  toggleSettings();
+  seen.clear();
+  loadMeme();
+}
+function loadFromStorage(){
+  const s=localStorage.getItem("ranmem_settings");
+  if(s) settings=JSON.parse(s);
+  renderSettings();
+}
+
+/* ================= LOAD MEME ================= */
+let retryCount=0;
 async function loadMeme(){
+  if(!settings.subs.length) return;
   titleEl.textContent="Yükleniyor…";
   errorEl.textContent="";
   mediaContainer.innerHTML="";
 
-  const sub = subs[Math.floor(Math.random()*subs.length)];
+  const sub=settings.subs[Math.floor(Math.random()*settings.subs.length)];
 
   let json;
   try {
@@ -61,8 +129,10 @@ async function loadMeme(){
   const posts = json.data.children.map(c=>c.data)
     .filter(p => {
       if(seen.has(p.id)) return false;
-      if(!p.media && !p.preview) return false; // medya yoksa atla
+      if(settings.onlyVideo && !p.is_video) return false;
+      if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
+      if(!p.media && !p.preview) return false;
       return true;
     });
 
@@ -85,8 +155,8 @@ async function loadMeme(){
     v.src = post.media.reddit_video.fallback_url;
     v.autoplay = true;
     v.loop = true;
-    v.controls = false;
     v.muted = true;
+    v.controls = false;
     v.addEventListener("click", ()=>v.paused?v.play():v.pause());
     mediaContainer.appendChild(v);
   } else if(post.preview?.images?.[0]?.source?.url){
@@ -96,9 +166,8 @@ async function loadMeme(){
   }
 }
 
-// Çift tıklama ile yeni içerik
-mediaContainer.addEventListener("dblclick", loadMeme);
-
+/* ================= INIT ================= */
+loadFromStorage();
 loadMeme();
 </script>
 </body>
