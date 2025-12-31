@@ -2,30 +2,25 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ranmem</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-*{box-sizing:border-box;font-family:system-ui;margin:0;padding:0;}
-body{background:#0f0f0f;color:#fff;display:flex;flex-direction:column;height:100vh;}
-header{background:#1a1a1a;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
-header b{font-size:20px;}
-button{background:#222;color:#fff;border:0;padding:8px 14px;font-size:16px;cursor:pointer;border-radius:6px;transition:0.2s;}
-button:hover{background:#333;}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;}
-.media-container{position:relative;width:100%;max-width:800px;display:flex;justify-content:center;align-items:center;}
-video,img{max-width:100%;max-height:75vh;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.5);cursor:pointer;display:none;}
-#title{margin-top:10px;font-size:16px;text-align:center;opacity:0.9;}
-#error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;font-size:14px;}
-#redditLink{margin-top:6px;font-size:14px;}
-#redditLink a{color:#4fa;text-decoration:none;}
-#redditLink a:hover{text-decoration:underline;}
-#settings{position:absolute;top:60px;right:0;width:250px;background:#111;padding:12px;display:none;box-shadow:-2px 4px 10px rgba(0,0,0,0.5);}
-.sub{border:1px solid #222;padding:8px;margin-bottom:8px;border-radius:4px;}
-.sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;border-radius:4px;}
-.sub button{background:#400;margin-top:6px;padding:6px 10px;font-size:14px;border-radius:4px;}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+*{box-sizing:border-box;font-family:system-ui}
+body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
+header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
+button{background:#222;color:#fff;border:0;padding:6px 10px;cursor:pointer;}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
+#title{margin-top:8px;opacity:.85;text-align:center;}
+#error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
+#settings{display:none;background:#111;padding:12px;}
+.sub{border:1px solid #222;padding:8px;margin-bottom:8px;}
+.sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;}
+.sub button{background:#400;margin-top:6px;}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
 </style>
 </head>
+
 <body>
 <header>
   <b>Ranmem</b>
@@ -45,23 +40,18 @@ video,img{max-width:100%;max-height:75vh;border-radius:10px;box-shadow:0 4px 12p
 </div>
 
 <main>
-  <div class="media-container" id="mediaContainer">
-    <video id="video" autoplay playsinline></video>
-    <img id="image" />
-  </div>
+  <video id="video" autoplay></video>
   <div id="title"></div>
   <div id="error"></div>
-  <div id="redditLink"></div>
 </main>
 
+<!-- DASH.JS CDN -->
 <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+
 <script>
 const video = document.getElementById("video");
-const image = document.getElementById("image");
-const mediaContainer = document.getElementById("mediaContainer");
 const titleEl = document.getElementById("title");
 const errorEl = document.getElementById("error");
-const redditLinkEl = document.getElementById("redditLink");
 const subsBox = document.getElementById("subs");
 const onlyVideoEl = document.getElementById("onlyVideo");
 const nsfwEl = document.getElementById("nsfw");
@@ -77,10 +67,10 @@ let settings = {
 };
 const seen = new Set();
 
-/* SETTINGS */
+/* ================= SETTINGS ================= */
 function toggleSettings(){
-  const s = document.getElementById("settings");
-  s.style.display = s.style.display==="none"?"block":"none";
+  document.getElementById("settings").style.display =
+    document.getElementById("settings").style.display==="none"?"block":"none";
 }
 function renderSettings(){
   subsBox.innerHTML="";
@@ -116,20 +106,16 @@ function loadFromStorage(){
   renderSettings();
 }
 
-/* MEDIA CLICK PAUSE/PLAY */
+/* ================= VIDEO CLICK (PAUSE/PLAY) ================= */
 video.addEventListener("click",()=>{video.paused?video.play():video.pause();});
 video.addEventListener("ended",()=>{video.currentTime=0;video.play();});
 
-/* LOAD MEME */
+/* ================= LOAD MEME ================= */
 let retryCount=0;
 async function loadMeme(){
   if(!settings.subs.length) return;
   titleEl.textContent="Yükleniyor…";
   errorEl.textContent="";
-  redditLinkEl.innerHTML="";
-  image.style.display="none";
-  video.style.display="none";
-
   const sub=settings.subs[Math.floor(Math.random()*settings.subs.length)];
 
   let json;
@@ -146,11 +132,11 @@ async function loadMeme(){
   const posts=json.data.children.map(c=>c.data)
     .filter(p=>{
       if(seen.has(p.id)) return false;
-      if(!p.is_video && !p.url) return false;
       if(settings.onlyVideo && !p.is_video) return false;
       if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      if(p.is_video && !p.media?.reddit_video?.dash_url) return false;
+      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url) return false;
+      if(!p.url && !p.is_video) return false; // medya yoksa atla
       return true;
     });
 
@@ -165,45 +151,54 @@ async function loadMeme(){
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  if(window.dashPlayer){ dashPlayer.reset(); }
-  video.pause();
-  video.src = "";
-
+  // DASH.JS ile oynat
   if(post.is_video && post.media?.reddit_video?.dash_url){
-    video.style.display="block";
-    window.dashPlayer=dashjs.MediaPlayer().create();
-    dashPlayer.initialize(video, post.media.reddit_video.dash_url, true);
+    try{
+      const dashUrl = post.media.reddit_video.dash_url;
+      if(window.dashPlayer) dashPlayer.reset();
+      window.dashPlayer=dashjs.MediaPlayer().create();
+      dashPlayer.initialize(video,dashUrl,true);
+    }catch(e){
+      console.error("DASH player error:", e);
+      errorEl.textContent="Video yüklenemedi.";
+    }
   } else {
-    let imgUrl = post.url;
-    if(!imgUrl.match(/\.(jpg|jpeg|png|gif)$/i)){
-      imgUrl = post.preview?.images?.[0]?.source?.url.replace(/&amp;/g,"&");
-    }
-    if(imgUrl){
-      image.style.display="block";
-      image.src=imgUrl;
-      image.onload = ()=>{ errorEl.textContent=""; };
-      image.onerror = ()=>{ errorEl.textContent="Resim yüklenemedi, tekrar deneniyor..."; setTimeout(loadMeme,800); };
-    }
+    video.src = post.url;
+    video.load();
+    video.play();
   }
 
-  if(post.permalink){
-    redditLinkEl.innerHTML = `<a href="https://reddit.com${post.permalink}" target="_blank">Reddit'te Aç</a>`;
-  }
+  // Reddit link
+  const redditLinkEl = document.createElement("a");
+  redditLinkEl.href = `https://reddit.com${post.permalink}`;
+  redditLinkEl.textContent = "Reddit'te aç";
+  redditLinkEl.style.display="block";
+  redditLinkEl.style.marginTop="8px";
+  redditLinkEl.style.color="#0af";
+  redditLinkEl.target="_blank";
+  const existing = document.getElementById("redditLink");
+  if(existing) existing.replaceWith(redditLinkEl);
+  redditLinkEl.id="redditLink";
+  titleEl.after(redditLinkEl);
 }
 
-/* SWIPE SUPPORT */
-let touchStartX=0;
-let touchEndX=0;
-mediaContainer.addEventListener('touchstart', e=>{ touchStartX = e.changedTouches[0].screenX; });
-mediaContainer.addEventListener('touchend', e=>{
-  touchEndX = e.changedTouches[0].screenX;
-  if(touchStartX - touchEndX > 50){ loadMeme(); } // swipe left
-  else if(touchEndX - touchStartX > 50){ loadMeme(); } // swipe right
-});
-
-/* INIT */
+/* ================= INIT ================= */
 loadFromStorage();
 loadMeme();
+
+/* ================= DOUBLE TAP / DOUBLE CLICK ================= */
+let lastTap = 0;
+document.addEventListener("dblclick", loadMeme);
+document.addEventListener("touchend", e=>{
+  const currentTime = new Date().getTime();
+  const tapLength = currentTime - lastTap;
+  if(tapLength < 300 && tapLength > 0){
+    loadMeme();
+    e.preventDefault();
+  }
+  lastTap = currentTime;
+});
 </script>
+
 </body>
 </html>
