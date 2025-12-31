@@ -1,0 +1,24 @@
+{
+    "name": "yasireymenkayabasi/ranmem",
+    "description": "Reddit meme/video viewer with PHP backend",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ranmem\\": "src/"
+        }
+    },
+    "scripts": {
+        "start": "php -S localhost:8000 -t public"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Yasir Eymen Kayabaşı",
+            "email": "youremail@example.com"
+        }
+    ]
+}
