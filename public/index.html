@@ -5,25 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ranmem</title>
 <style>
-*{box-sizing:border-box;font-family:system-ui}
-body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direction:column;}
-header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
-button{background:#222;color:#fff;border:0;padding:8px 12px;font-size:16px;cursor:pointer;border-radius:4px;}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;}
-video,img{max-width:100%;max-height:80vh;background:black;cursor:pointer;display:none;border-radius:4px;}
-#title{margin-top:8px;opacity:.85;text-align:center;font-size:16px;}
+*{box-sizing:border-box;font-family:system-ui;margin:0;padding:0;}
+body{background:#0f0f0f;color:#fff;display:flex;flex-direction:column;height:100vh;}
+header{background:#1a1a1a;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
+header b{font-size:20px;}
+button{background:#222;color:#fff;border:0;padding:8px 14px;font-size:16px;cursor:pointer;border-radius:6px;transition:0.2s;}
+button:hover{background:#333;}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;}
+.media-container{position:relative;width:100%;max-width:800px;display:flex;justify-content:center;align-items:center;}
+video,img{max-width:100%;max-height:75vh;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.5);cursor:pointer;display:none;}
+#title{margin-top:10px;font-size:16px;text-align:center;opacity:0.9;}
 #error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;font-size:14px;}
 #redditLink{margin-top:6px;font-size:14px;}
-#redditLink a{color:#4fa; text-decoration: none;}
-#redditLink a:hover{text-decoration: underline;}
-#settings{display:none;background:#111;padding:12px;border-top:1px solid #222;}
+#redditLink a{color:#4fa;text-decoration:none;}
+#redditLink a:hover{text-decoration:underline;}
+#settings{position:absolute;top:60px;right:0;width:250px;background:#111;padding:12px;display:none;box-shadow:-2px 4px 10px rgba(0,0,0,0.5);}
 .sub{border:1px solid #222;padding:8px;margin-bottom:8px;border-radius:4px;}
 .sub input,.sub textarea{width:100%;background:#222;color:#fff;border:0;padding:6px;margin-top:4px;border-radius:4px;}
-.sub button{background:#400;margin-top:6px;padding:6px 10px;font-size:14px;}
-.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
+.sub button{background:#400;margin-top:6px;padding:6px 10px;font-size:14px;border-radius:4px;}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 </style>
 </head>
-
 <body>
 <header>
   <b>Ranmem</b>
@@ -42,9 +44,11 @@ video,img{max-width:100%;max-height:80vh;background:black;cursor:pointer;display
   </div>
 </div>
 
-<main ondblclick="loadMeme()">
-  <video id="video" autoplay playsinline></video>
-  <img id="image" />
+<main>
+  <div class="media-container" id="mediaContainer">
+    <video id="video" autoplay playsinline></video>
+    <img id="image" />
+  </div>
   <div id="title"></div>
   <div id="error"></div>
   <div id="redditLink"></div>
@@ -54,6 +58,7 @@ video,img{max-width:100%;max-height:80vh;background:black;cursor:pointer;display
 <script>
 const video = document.getElementById("video");
 const image = document.getElementById("image");
+const mediaContainer = document.getElementById("mediaContainer");
 const titleEl = document.getElementById("title");
 const errorEl = document.getElementById("error");
 const redditLinkEl = document.getElementById("redditLink");
@@ -74,8 +79,8 @@ const seen = new Set();
 
 /* SETTINGS */
 function toggleSettings(){
-  document.getElementById("settings").style.display =
-    document.getElementById("settings").style.display==="none"?"block":"none";
+  const s = document.getElementById("settings");
+  s.style.display = s.style.display==="none"?"block":"none";
 }
 function renderSettings(){
   subsBox.innerHTML="";
@@ -111,7 +116,7 @@ function loadFromStorage(){
   renderSettings();
 }
 
-/* VIDEO CLICK (PAUSE/PLAY) */
+/* MEDIA CLICK PAUSE/PLAY */
 video.addEventListener("click",()=>{video.paused?video.play():video.pause();});
 video.addEventListener("ended",()=>{video.currentTime=0;video.play();});
 
@@ -185,6 +190,16 @@ async function loadMeme(){
     redditLinkEl.innerHTML = `<a href="https://reddit.com${post.permalink}" target="_blank">Reddit'te Aç</a>`;
   }
 }
+
+/* SWIPE SUPPORT */
+let touchStartX=0;
+let touchEndX=0;
+mediaContainer.addEventListener('touchstart', e=>{ touchStartX = e.changedTouches[0].screenX; });
+mediaContainer.addEventListener('touchend', e=>{
+  touchEndX = e.changedTouches[0].screenX;
+  if(touchStartX - touchEndX > 50){ loadMeme(); } // swipe left
+  else if(touchEndX - touchStartX > 50){ loadMeme(); } // swipe right
+});
 
 /* INIT */
 loadFromStorage();
