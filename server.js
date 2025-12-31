@@ -13,7 +13,7 @@ app.get("/api/reddit", async (req, res) => {
   try {
     const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/${sort}.json?limit=${limit}`;
     const response = await fetch(url, {
-      headers: { "User-Agent": "Ranmem v0.1 by /u/yasirovic" }
+      headers: { "User-Agent": "Ranmem v0.2 by /u/yasirovic" }
     });
 
     const contentType = response.headers.get("content-type") || "";
