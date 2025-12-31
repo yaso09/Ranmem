@@ -10,7 +10,7 @@ body{margin:0;background:#0f0f0f;color:#fff;height:100vh;display:flex;flex-direc
 header{background:#151515;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;}
 button{background:#222;color:#fff;border:0;padding:6px 10px;cursor:pointer;}
 main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
+video, img{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
 #title{margin-top:8px;opacity:.85;text-align:center;}
 #error{margin-top:6px;color:#f66;min-height:1.2em;text-align:center;}
 #settings{display:none;background:#111;padding:12px;}
@@ -41,15 +41,15 @@ video{max-width:95%;max-height:75vh;background:black;cursor:pointer;}
 
 <main>
   <video id="video" autoplay></video>
+  <img id="image" style="display:none;">
   <div id="title"></div>
   <div id="error"></div>
 </main>
 
-<!-- DASH.JS CDN -->
 <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
-
 <script>
 const video = document.getElementById("video");
+const image = document.getElementById("image");
 const titleEl = document.getElementById("title");
 const errorEl = document.getElementById("error");
 const subsBox = document.getElementById("subs");
@@ -106,9 +106,10 @@ function loadFromStorage(){
   renderSettings();
 }
 
-/* ================= VIDEO CLICK (PAUSE/PLAY) ================= */
+/* ================= VIDEO/IMAGE CLICK ================= */
 video.addEventListener("click",()=>{video.paused?video.play():video.pause();});
 video.addEventListener("ended",()=>{video.currentTime=0;video.play();});
+image.addEventListener("click",()=>loadMeme());
 
 /* ================= LOAD MEME ================= */
 let retryCount=0;
@@ -116,13 +117,16 @@ async function loadMeme(){
   if(!settings.subs.length) return;
   titleEl.textContent="Yükleniyor…";
   errorEl.textContent="";
+  video.style.display="none";
+  image.style.display="none";
+
   const sub=settings.subs[Math.floor(Math.random()*settings.subs.length)];
 
   let json;
   try{
-    const r=await fetch(`/api/reddit?sub=${encodeURIComponent(sub.name)}&limit=50`);
+    const r = await fetch(`https://www.reddit.com/r/${encodeURIComponent(sub.name)}/hot.json?limit=50`);
     if(!r.ok) throw new Error("reddit api error");
-    json=await r.json();
+    json = await r.json();
   }catch(e){
     errorEl.textContent="Reddit’e ulaşılamadı. Tekrar deneniyor…";
     console.error(e);
@@ -135,8 +139,7 @@ async function loadMeme(){
       if(settings.onlyVideo && !p.is_video) return false;
       if(!settings.nsfw && p.over_18) return false;
       if(sub.flairs.length && !sub.flairs.includes(p.link_flair_text)) return false;
-      if(settings.onlyVideo && !p.media?.reddit_video?.dash_url) return false;
-      if(!p.url && !p.is_video) return false; // medya yoksa atla
+      if(!p.url && !p.is_video) return false;
       return true;
     });
 
@@ -147,25 +150,25 @@ async function loadMeme(){
   }
 
   retryCount=0;
-  const post=posts[Math.floor(Math.random()*posts.length)];
+  const post = posts[Math.floor(Math.random()*posts.length)];
   seen.add(post.id);
   titleEl.textContent=post.title;
 
-  // DASH.JS ile oynat
+  // medya yükle
   if(post.is_video && post.media?.reddit_video?.dash_url){
     try{
       const dashUrl = post.media.reddit_video.dash_url;
       if(window.dashPlayer) dashPlayer.reset();
       window.dashPlayer=dashjs.MediaPlayer().create();
       dashPlayer.initialize(video,dashUrl,true);
+      video.style.display="block";
     }catch(e){
       console.error("DASH player error:", e);
       errorEl.textContent="Video yüklenemedi.";
     }
-  } else {
-    video.src = post.url;
-    video.load();
-    video.play();
+  } else if(post.url.match(/\.(jpg|jpeg|png|gif)$/i)){
+    image.src = post.url;
+    image.style.display="block";
   }
 
   // Reddit link
@@ -199,6 +202,5 @@ document.addEventListener("touchend", e=>{
   lastTap = currentTime;
 });
 </script>
-
 </body>
 </html>
